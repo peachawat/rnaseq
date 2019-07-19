@@ -100,6 +100,7 @@ if (params.genomes && params.genome && !params.genomes.containsKey(params.genome
 params.star_index = params.genome ? params.genomes[ params.genome ].star ?: false : false
 params.fasta = params.genome ? params.genomes[ params.genome ].fasta ?: false : false
 params.gtf = params.genome ? params.genomes[ params.genome ].gtf ?: false : false
+params.count_gtf = params.genome ? params.genomes[ params.genome ].count_gtf ?: false : false
 params.gff = params.genome ? params.genomes[ params.genome ].gff ?: false : false
 params.bed12 = params.genome ? params.genomes[ params.genome ].bed12 ?: false : false
 params.hisat2_index = params.genome ? params.genomes[ params.genome ].hisat2 ?: false : false
@@ -165,6 +166,13 @@ if( params.gtf ){
                    .ifEmpty { exit 1, "GFF annotation file not found: ${params.gff}" }
 } else {
     exit 1, "No GTF or GFF3 annotation specified!"
+}
+
+if( params.count_gtf ){
+    Channel
+        .fromPath(params.count_gtf)
+        .ifEmpty { exit 1, "counting GTF annotation file not found: ${params.count_gtf}" }
+        .into { gtf_featureCounts; gtf_HTSeqCounts; gtf_stringtieFPKM }
 }
 
 if( params.bed12 ){
@@ -251,6 +259,7 @@ if(params.aligner == 'star'){
     if(params.splicesites)         summary['Splice Sites'] = params.splicesites
 }
 if(params.gtf)                 summary['GTF Annotation']  = params.gtf
+if(params.count_gtf)	       summary['Counting GTF Annotation'] = params.count_gtf
 if(params.gff)                 summary['GFF3 Annotation']  = params.gff
 if(params.bed12)               summary['BED Annotation']  = params.bed12
 summary['Save prefs']     = "Ref Genome: "+(params.saveReference ? 'Yes' : 'No')+" / Trimmed FastQ: "+(params.saveTrimmed ? 'Yes' : 'No')+" / Alignment intermediates: "+(params.saveAlignedIntermediates ? 'Yes' : 'No')
@@ -988,7 +997,6 @@ process merge_featureCounts {
     $merge $input_files | csvtk cut -t -f "-Start,-Chr,-End,-Length,-Strand" | sed 's/Aligned.sortedByCoord.out.markDups.bam//g' > merged_gene_counts.txt
     """
 }
-
 
 /*
  * STEP 10 - stringtie FPKM
