@@ -873,6 +873,7 @@ process markDuplicates {
 
     output:
     file "${bam.baseName}.markDups.bam" into bam_md
+    file "${bam.baseName}.markDups.bam" into bam_md_htseq
     file "${bam.baseName}.markDups_metrics.txt" into picard_results
     file "${bam.baseName}.markDups.bam.bai"
 
@@ -892,6 +893,27 @@ process markDuplicates {
     """
 }
 
+/*
+ * STEP 6.1 HTSeq
+ */
+process htseq {
+    when:
+    !params.skip_qc && !params.skip_dupradar
+
+    input:
+    file bam_md_htseq
+
+    output:
+    file "htseq-count.txt"
+    file "htseq-count.log"
+
+    script:
+    """
+    htseq-count -f bam -r pos -s reverse -i gene_name ${bam_md_htseq} \\
+    /net/isi-dcnl/ifs/user_data/CWChen_Grp/Lu/ref/Mus_musculus.GRCm38.88.protein_coding.and.lncRNA.gtf \\
+    > htseq-count.txt 2>htseq-count.log
+    """
+}
 
 /*
  * STEP 7 - dupRadar
