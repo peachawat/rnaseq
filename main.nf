@@ -897,21 +897,46 @@ process markDuplicates {
  * STEP 6.1 HTSeq
  */
 process htseq {
+    tag "${bam_md_htseq.baseName}"
+    publishDir "${params.outdir}/htseq", mode: 'copy'
+
     when:
     !params.skip_qc && !params.skip_dupradar
 
     input:
     file bam_md_htseq
+    file gtf from gtf_HTSeqCounts.collect()
 
     output:
-    file "htseq-count.txt"
-    file "htseq-count.log"
+    file "${bam_md_htseq.baseName}.htseqCount.txt" into htseqCounts
+    file "${bam_md_htseq.baseName}.htseqCount.log"
 
     script:
     """
-    htseq-count -f bam -r pos -s reverse -i gene_name ${bam_md_htseq} \\
-    /net/isi-dcnl/ifs/user_data/CWChen_Grp/Lu/ref/Mus_musculus.GRCm38.88.protein_coding.and.lncRNA.gtf \\
-    > htseq-count.txt 2>htseq-count.log
+    htseq-count -f bam -r pos -s reverse -i gene_name ${bam_md_htseq} $gtf \\
+    > ${bam_md_htseq.baseName}.htseqCount.txt 2>${bam_md_htseq.baseName}.htseqCount.log
+    """
+}
+
+/*
+ * STEP 6.2 - Merge HTSeq Counts
+ */
+process merge_htseqcounts {
+    tag "${input_files[0].baseName}"
+    publishDir "${params.outdir}/htseq", mode: 'copy'
+
+    input:
+    file input_files from htseqCounts.collect()
+
+    output:
+    file 'merged.htseqCount.txt'
+
+    script:
+    //if we only have 1 file, just use cat and pipe output to csvtk. Else join all files first, and then remove unwanted column names.
+    def single = input_files instanceof Path ? 1 : input_files.size()
+    def merge = (single == 1) ? 'cat' : 'csvtk join -t -f 1'
+    """
+    $merge $input_files > merged.htseqCount.txt
     """
 }
 
